@@ -2,7 +2,12 @@ import io, re, datetime as dt
 import streamlit as st
 import pandas as pd
 import pdfplumber
-import fitz  # PyMuPDF
+
+# make PyMuPDF optional so builds never block
+try:
+    import fitz  # PyMuPDF
+except Exception:
+    fitz = None
 
 st.set_page_config(page_title="Ellis Law – Police Report Parser", layout="wide")
 st.title("Ellis Law – Police Report Parser")
