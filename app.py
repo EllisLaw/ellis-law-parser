@@ -3,6 +3,19 @@ import streamlit as st
 import pandas as pd
 import pdfplumber
 
+# Make PyMuPDF optional (so builds never block). Only used if present.
+try:
+    import fitz  # PyMuPDF
+except Exception:
+    fitz = None
+
+st.set_page_config(page_title="Ellis Law – Police Report Parser", layout="wide")
+st.title("Ellis Law – Police Report Parser")
+st.caption("Upload NJTR-1 / TRPD PDFs. We’ll extract injured, likely not-at-fault parties, flag commercial/fatal, and export to Excel.")
+
+left, right = st.columns([2, 1])
+
+# ---------- PDF text extraction ----------
 def read_pdf_text(file_bytes: bytes) -> str:
     # Try pdfplumber first (structured text)
     try:
@@ -24,7 +37,7 @@ def read_pdf_text(file_bytes: bytes) -> str:
 
     return ""
 
-# ---------- Heuristics tuned to NJTR-1 / your samples ----------
+# ---------- Heuristics tuned to NJTR-1 ----------
 CASE_RE = re.compile(r"\b1\s*Case\s*Number\s*\n?([A-Z0-9\-]+)", re.IGNORECASE)
 DEPT_RE = re.compile(r"2\s*Police Dept of\s*\n?([A-Z0-9 \-./&]+)", re.IGNORECASE)
 DATE_RE = re.compile(r"4\s*Date of Crash\s*\n?(\d{2}/\d{2}/\d{2})", re.IGNORECASE)
@@ -48,6 +61,7 @@ def parse_occupants(text: str):
             name_only = clean if not m else clean[:m.start()].strip()
             if 2 <= len(name_only.split()) <= 5:
                 results.append({"name": name_only})
+    # De-dupe
     dedup, seen = [], set()
     for r in results:
         if r["name"] not in seen:
