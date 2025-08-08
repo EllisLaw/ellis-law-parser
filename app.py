@@ -3,38 +3,26 @@ import streamlit as st
 import pandas as pd
 import pdfplumber
 
-# make PyMuPDF optional so builds never block
-try:
-    import fitz  # PyMuPDF
-except Exception:
-    fitz = None
-
-st.set_page_config(page_title="Ellis Law – Police Report Parser", layout="wide")
-st.title("Ellis Law – Police Report Parser")
-st.caption("Upload NJTR-1 / TRPD PDFs. We’ll extract injured, likely not-at-fault parties, flag commercial/fatal, and export to Excel.")
-
-left, right = st.columns([2,1])
-
-# ---------- PDF text extraction ----------
 def read_pdf_text(file_bytes: bytes) -> str:
-    # Try pdfplumber (keeps layout), fallback to PyMuPDF
-    text_chunks = []
+    # Try pdfplumber first (structured text)
     try:
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            for p in pdf.pages:
-                text_chunks.append(p.extract_text() or "")
+            text_chunks = [(p.extract_text() or "") for p in pdf.pages]
         txt = "\n".join(text_chunks)
         if txt.strip():
             return txt
     except Exception:
         pass
-    try:
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        for page in doc:
-            text_chunks.append(page.get_text("text"))
-        return "\n".join(text_chunks)
-    except Exception:
-        return ""
+
+    # Fallback to PyMuPDF only if installed
+    if fitz is not None:
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            return "\n".join(page.get_text("text") for page in doc)
+        except Exception:
+            pass
+
+    return ""
 
 # ---------- Heuristics tuned to NJTR-1 / your samples ----------
 CASE_RE = re.compile(r"\b1\s*Case\s*Number\s*\n?([A-Z0-9\-]+)", re.IGNORECASE)
